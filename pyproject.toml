@@ -12,10 +12,14 @@ dependencies = [
   "rapidfuzz",
   "audioop-lts>=0.2.2",
   "revup>=0.4.0",
+  "mlx-vlm",
+  "opencv-python",
+  "Pillow",
 ]
 
 [project.scripts]
 tennis-cut = "tennis_autoedit.cli:main"
+tennis-video-cut = "tennis_autoedit.video_cli:main"
 
 [tool.ruff]
 line-length = 100

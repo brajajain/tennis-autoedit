@@ -115,3 +115,63 @@ def expand_and_merge(
             merged.append((s, e))
     
     return merged
+
+def smooth_vlm_predictions(predictions: List[bool]) -> List[bool]:
+    """
+    Bridge [True, False, True] sequences to maintain continuous rally clips.
+    """
+    if len(predictions) < 3:
+        return predictions
+
+    smoothed = list(predictions)
+    for i in range(1, len(predictions) - 1):
+        if predictions[i-1] is True and predictions[i+1] is True:
+            smoothed[i] = True
+
+    return smoothed
+
+def get_video_segments(
+    predictions: List[bool],
+    chunk_duration: float,
+    pre_buffer: float = 5.0,
+    post_buffer: float = 3.0,
+    min_duration: float = 2.0,
+    absolute_end: Optional[float] = None
+) -> List[Tuple[float, float]]:
+    """
+    Convert chunk-based predictions into time segments with buffers.
+    """
+    raw_segments: List[Tuple[float, float]] = []
+    in_segment = False
+    start_time = 0.0
+
+    for i, active in enumerate(predictions):
+        current_time = i * chunk_duration
+        if active and not in_segment:
+            start_time = current_time
+            in_segment = True
+        elif not active and in_segment:
+            end_time = current_time # end of previous chunk
+            raw_segments.append((start_time, end_time))
+            in_segment = False
+
+    if in_segment:
+        raw_segments.append((start_time, len(predictions) * chunk_duration))
+
+    # Apply buffers and merge
+    return expand_and_merge(
+        raw_segments,
+        pad_pre=pre_buffer,
+        pad_post=post_buffer,
+        merge_gap=0.1,
+        absolute_end=absolute_end
+    )
+
+def filter_short_segments(
+    segments: List[Tuple[float, float]],
+    min_duration: float
+) -> List[Tuple[float, float]]:
+    """
+    Remove segments that are shorter than min_duration.
+    """
+    return [s for s in segments if (s[1] - s[0]) >= min_duration]
